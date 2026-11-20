@@ -16,7 +16,7 @@
 ## 安装
 
 ```bash
-git clone https://github.com/<你的账号>/motion-homepage ~/.claude/skills/motion-homepage
+git clone https://github.com/yaohuicong/motion-homepage ~/.claude/skills/motion-homepage
 ```
 
 其他支持 Skill 的工具：把整个文件夹放到它读取 Skill 的目录。
