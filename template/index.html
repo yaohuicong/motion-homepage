@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Portfolio</title>
+  <meta name="description" content="">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="site.config.js"></script>
+</head>
+<body class="is-loading">
+  <!-- 人物舞台：全屏画布，追视与衔接片段都画在这里 -->
+  <canvas id="stage" aria-hidden="true"></canvas>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+
+  <div id="loader" aria-live="polite">
+    <div class="loader-count"><span id="loader-num">0</span><small>%</small></div>
+    <div class="loader-bar"><i id="loader-bar"></i></div>
+  </div>
+
+  <header class="site-header">
+    <a class="brand" href="#hero" data-magnetic></a>
+    <nav class="site-nav"></nav>
+    <a class="header-cta" href="#outro" data-magnetic>Let's talk</a>
+  </header>
+  <div class="scroll-progress"><i></i></div>
+  <div class="section-index"><b>01</b><span>/ 05</span></div>
+
+  <main id="sections"></main>
+
+  <div id="folder-overlay" hidden></div>
+  <div id="work-modal" hidden></div>
+  <div id="cursor" aria-hidden="true"></div>
+
+  <noscript><p style="padding:2rem">This page needs JavaScript.</p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

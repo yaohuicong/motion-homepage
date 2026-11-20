@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>追视标定</title>
+<style>
+  :root { --bg:#111216; --fg:#eee; --mut:#888; --acc:#c6ff3d; }
+  * { box-sizing: border-box; } body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 system-ui, "Noto Sans SC", sans-serif; }
+  main { display: grid; grid-template-columns: 1fr 340px; gap: 20px; padding: 20px; min-height: 100vh; }
+  .view { position: relative; } canvas { width: 100%; border-radius: 12px; background: #000; display: block; }
+  .head { position: absolute; width: 22px; height: 22px; margin: -11px; border: 2px solid var(--acc); border-radius: 50%; pointer-events: none; }
+  input[type=range] { width: 100%; margin: 14px 0 6px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button { background: #22242c; color: var(--fg); border: 1px solid #333; border-radius: 8px; padding: 8px 12px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--acc); } button.set { background: #2d3a12; border-color: var(--acc); }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0 16px; } .pad button { padding: 14px 0; }
+  h2 { font-size: 15px; margin: 18px 0 6px; } p, small { color: var(--mut); }
+  textarea { width: 100%; height: 190px; background: #0b0c10; color: var(--acc); border: 1px solid #333; border-radius: 8px; padding: 10px; font: 12px/1.4 monospace; }
+  kbd { background: #222; border: 1px solid #444; border-radius: 4px; padding: 0 5px; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <div class="view"><canvas id="cv"></canvas><div class="head" id="head"></div></div>
+    <input type="range" id="sl" min="0" value="0">
+    <div class="row"><button id="prev">◀ 上一帧</button><button id="next">下一帧 ▶</button><b id="fn">帧 0</b>
+      <small>键盘 <kbd>←</kbd><kbd>→</kbd> 逐帧，<kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> 跳 10 帧；在画面上点击设定头部位置</small></div>
+  </section>
+  <aside>
+    <h2>1. 把滑块拖到"正好看向某方向"的那一帧，点对应方向</h2>
+    <div class="pad" id="pad"></div>
+    <h2>2. 已标关键帧</h2>
+    <div id="keys"><small>还没有</small></div>
+    <h2>3. 复制到 site.config.js 的 stage.gaze</h2>
+    <textarea id="out" readonly></textarea>
+    <div class="row" style="margin-top:8px"><button id="copy">复制</button><button id="clear">清空重标</button></div>
+    <p>提示：正面（中）至少标在第 0 帧和最后一帧；每个方向标在头转到最远、停住的那一帧。</p>
+  </aside>
+</main>
+<script src="../site.config.js"></script>
+<script type="module">
+import { Clip } from '../js/clip.js';
+const g = window.SITE.stage.gaze;
+const src = g.src.startsWith('http') || g.src.startsWith('/') ? g.src : '../' + g.src;
+const clip = new Clip({ ...g, src });
+clip.load();
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const sl = document.getElementById('sl'); sl.max = g.count - 1;
+let cur = 0, head = { ...(g.head || { x: 0.5, y: 0.4 }) };
+let keys = (g.keys || []).map((k) => ({ ...k }));
+const DIRS = [['UL', -0.7, -0.7, '↖ 左上'], ['U', 0, -1, '↑ 上'], ['UR', 0.7, -0.7, '↗ 右上'], ['L', -1, 0, '← 左'], ['C', 0, 0, '● 正面'],
+  ['R', 1, 0, '→ 右'], ['DL', -0.7, 0.7, '↙ 左下'], ['D', 0, 1, '↓ 下'], ['DR', 0.7, 0.7, '↘ 右下']];
+const pad = document.getElementById('pad');
+pad.innerHTML = DIRS.map(([id, , , label]) => `<button data-id="${id}">${label}</button>`).join('');
+pad.onclick = (e) => {
+  const d = DIRS.find((x) => x[0] === e.target.dataset.id); if (!d) return;
+  keys = keys.filter((k) => k.f !== cur);
+  keys.push({ f: cur, x: d[1], y: d[2] }); keys.sort((a, b) => a.f - b.f); render();
+};
+document.getElementById('clear').onclick = () => { keys = []; render(); };
+document.getElementById('copy').onclick = () => navigator.clipboard.writeText(document.getElementById('out').value);
+cv.onclick = (e) => { const r = cv.getBoundingClientRect(); head = { x: +((e.clientX - r.left) / r.width).toFixed(3), y: +((e.clientY - r.top) / r.height).toFixed(3) }; render(); };
+const go = (f) => { cur = Math.max(0, Math.min(g.count - 1, f)); sl.value = cur; render(); };
+sl.oninput = () => go(+sl.value);
+document.getElementById('prev').onclick = () => go(cur - 1);
+document.getElementById('next').onclick = () => go(cur + 1);
+addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') go(cur - (e.shiftKey ? 10 : 1)); if (e.key === 'ArrowRight') go(cur + (e.shiftKey ? 10 : 1)); });
+const name = (k) => (DIRS.find((d) => Math.abs(d[1] - k.x) < 0.05 && Math.abs(d[2] - k.y) < 0.05) || [, , , '?'])[3];
+function render() {
+  const img = clip.frame(cur);
+  if (img) { cv.width = img.naturalWidth; cv.height = img.naturalHeight; ctx.drawImage(img, 0, 0); }
+  document.getElementById('fn').textContent = `帧 ${cur} / ${g.count - 1}`;
+  const h = document.getElementById('head'); h.style.left = head.x * 100 + '%'; h.style.top = head.y * 100 + '%';
+  pad.querySelectorAll('button').forEach((b) => b.classList.toggle('set', keys.some((k) => k.f === cur && name(k) === DIRS.find((d) => d[0] === b.dataset.id)[3])));
+  document.getElementById('keys').innerHTML = keys.length ? keys.map((k) => `<button onclick="window.__go(${k.f})">${k.f}：${name(k)}</button>`).join(' ') : '<small>还没有</small>';
+  document.getElementById('out').value = `keys: [\n${keys.map((k) => `  { f: ${k.f}, x: ${k.x}, y: ${k.y} },`).join('\n')}\n],\nhead: { x: ${head.x}, y: ${head.y} },`;
+}
+window.__go = go;
+const wait = setInterval(() => { if (clip.loaded) { render(); if (clip.loaded === g.count) clearInterval(wait); } }, 200);
+</script>
+</body>
+</html>
